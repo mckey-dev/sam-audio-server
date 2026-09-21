@@ -55,9 +55,7 @@ run_cuda.bat --model large
 run_780m.bat --model base-lite
 ```
 
-未知の ID を渡すと、利用可能な ID 一覧を出して終了します。
-
-AMD 向けの補足は `docs-rocm-windows.txt` を参照してください。DirectML は使用しません。
+未知の ID を渡すと、利用可能な ID 一覧を出して終了します。DirectML は使用しません。
 
 ## API
 
