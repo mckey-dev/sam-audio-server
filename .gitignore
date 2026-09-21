@@ -12,6 +12,7 @@ __pycache__/
 *.url
 .env
 hf_token.txt
+doc/
 models/**
 !models/.gitkeep
 !models/models.json
