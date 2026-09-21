@@ -1,0 +1,28 @@
+[project]
+name = "sam-audio-server"
+version = "0.1.0"
+description = "HTTP API server for Meta SAM Audio sound separation"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+    "huggingface-hub>=0.26.0",
+]
+
+[project.optional-dependencies]
+ml = [
+    "sam-audio @ git+https://github.com/facebookresearch/sam-audio.git",
+]
+
+[project.scripts]
+sam-audio-server = "modules.server:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["modules*"]

@@ -1,0 +1,17 @@
+venv/
+venv-cuda/
+venv-cpu/
+venv-amd/
+venv-780m/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.checkpoints/
+*.lnk
+*.url
+.env
+hf_token.txt
+models/**
+!models/.gitkeep
+!models/models.json

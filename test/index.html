@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SAM Audio — ブラウザテスト</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; line-height: 1.5; }
+    body { max-width: 42rem; margin: 2rem auto; padding: 0 1rem; }
+    ol.steps { padding-left: 1.25rem; }
+    label { display: block; margin-top: 1rem; font-weight: 600; }
+    .hint { font-weight: 400; color: #555; font-size: 0.95rem; margin: 0.25rem 0 0; }
+    input[type="text"], input[type="file"] { width: 100%; box-sizing: border-box; }
+    button { margin-top: 1rem; margin-right: 0.5rem; padding: 0.5rem 1rem; }
+    #status { margin-top: 1rem; color: #444; }
+    #result { margin-top: 1rem; white-space: pre-wrap; border: 1px solid #ccc; padding: 1rem; min-height: 3rem; }
+    .error { color: #b00020; }
+    audio { width: 100%; margin-top: 0.35rem; }
+    details { margin-top: 1.5rem; }
+    code { background: #f3f3f3; padding: 0.1rem 0.3rem; }
+  </style>
+</head>
+<body>
+  <h1>SAM Audio — ブラウザテスト</h1>
+  <p>
+    混ざった音声から、<strong>指定した音だけ</strong>を抜き出します。
+    サーバー起動後にこのページ（<code>http://127.0.0.1:8765/test/</code>）を開いてください。
+  </p>
+
+  <ol class="steps">
+    <li>下の「接続確認」で、サーバーが動いているか見る（<code>model_loaded</code> が true なら準備完了）</li>
+    <li>抜き出したい音が入った音声ファイルを選ぶ</li>
+    <li>抜き出したい音を短い英語で書く（例: <code>man speaking</code> / <code>dog barking</code> / <code>piano</code>）</li>
+    <li>「分離する」を押す。少し待つと、抜き出した音と残りが再生できる</li>
+  </ol>
+
+  <button type="button" id="healthBtn">1. 接続確認</button>
+
+  <label>
+    2. 音声ファイル
+    <input type="file" id="audioFile" accept="audio/*,video/*" />
+    <p class="hint">wav / flac / ogg を推奨。mp3 は PATH 上の ffmpeg があれば読めます。複数の音が混ざっているファイルを選びます。</p>
+  </label>
+
+  <label>
+    3. 抜き出したい音
+    <input type="text" id="description" placeholder="man speaking" />
+    <p class="hint">短い語句が向いています。長い文より「piano」「speech」「car horn」のような書き方。</p>
+  </label>
+
+  <button type="button" id="separateBtn">4. 分離する</button>
+
+  <p id="status"></p>
+  <div id="players" hidden>
+    <label>抜き出した音（target）
+      <audio id="targetAudio" controls></audio>
+    </label>
+    <label>残り（residual）
+      <audio id="residualAudio" controls></audio>
+    </label>
+  </div>
+  <div id="result"></div>
+
+  <details>
+    <summary>上級者向け（通常は不要）</summary>
+    <label>
+      API ベース URL（空ならこのページと同じサーバー）
+      <input type="text" id="apiBase" placeholder="" />
+    </label>
+    <label>
+      時間アンカー JSON（その音がある／ない区間）
+      <input type="text" id="anchors" placeholder='[["+", 6.3, 7.0]]' />
+      <p class="hint"><code>+</code> はその区間に対象音がある、<code>-</code> はない、という意味です。秒単位。</p>
+    </label>
+    <label>
+      <input type="checkbox" id="predictSpans" />
+      スパン自動予測（テキストから時間区間を推定。遅くなることがあります）
+    </label>
+    <button type="button" id="infoBtn">GET /v1/info</button>
+  </details>
+
+  <script>
+    const apiBaseInput = document.getElementById("apiBase");
+    const statusEl = document.getElementById("status");
+    const resultEl = document.getElementById("result");
+    const playersEl = document.getElementById("players");
+    const targetAudio = document.getElementById("targetAudio");
+    const residualAudio = document.getElementById("residualAudio");
+
+    function baseUrl() {
+      const v = apiBaseInput.value.trim();
+      return v ? v.replace(/\/$/, "") : window.location.origin;
+    }
+
+    function setStatus(msg, isError = false) {
+      statusEl.textContent = msg;
+      statusEl.className = isError ? "error" : "";
+    }
+
+    function wavUrlFromB64(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+      return URL.createObjectURL(new Blob([bytes], { type: "audio/wav" }));
+    }
+
+    document.getElementById("healthBtn").addEventListener("click", async () => {
+      setStatus("接続確認中…");
+      resultEl.textContent = "";
+      playersEl.hidden = true;
+      try {
+        const res = await fetch(`${baseUrl()}/health`);
+        const body = await res.json();
+        resultEl.textContent = JSON.stringify(body, null, 2);
+        if (res.ok && body.model_loaded) {
+          setStatus("サーバー準備完了。音声を選んで分離できます。");
+        } else if (res.ok) {
+          setStatus("サーバーにはつながっていますが、モデル未ロードです。起動完了を待ってください。", true);
+        } else {
+          setStatus(`HTTP ${res.status}`, true);
+        }
+      } catch (e) {
+        setStatus("サーバーに接続できません。先に python -m modules.server で起動してください。", true);
+      }
+    });
+
+    document.getElementById("infoBtn").addEventListener("click", async () => {
+      setStatus("モデル情報を取得中…");
+      try {
+        const res = await fetch(`${baseUrl()}/v1/info`);
+        const body = await res.json();
+        resultEl.textContent = JSON.stringify(body, null, 2);
+        setStatus(res.ok ? "OK" : `HTTP ${res.status}`, !res.ok);
+      } catch (e) {
+        setStatus(String(e), true);
+      }
+    });
+
+    document.getElementById("separateBtn").addEventListener("click", async () => {
+      const fileInput = document.getElementById("audioFile");
+      const description = document.getElementById("description").value.trim();
+      if (!fileInput.files?.length) {
+        setStatus("音声ファイルを選んでください。", true);
+        return;
+      }
+      if (!description) {
+        setStatus("抜き出したい音を書いてください（例: man speaking）。", true);
+        return;
+      }
+      const file = fileInput.files[0];
+      setStatus(`分離中: ${file.name} …（初回は数十秒かかることがあります）`);
+      resultEl.textContent = "";
+      playersEl.hidden = true;
+      const form = new FormData();
+      form.append("audio", file);
+      form.append("description", description);
+      form.append("output", "json");
+      form.append("predict_spans", document.getElementById("predictSpans").checked ? "true" : "false");
+      const anchors = document.getElementById("anchors").value.trim();
+      if (anchors) form.append("anchors", anchors);
+      try {
+        const res = await fetch(`${baseUrl()}/v1/separate`, { method: "POST", body: form });
+        const text = await res.text();
+        let body;
+        try {
+          body = JSON.parse(text);
+        } catch {
+          resultEl.textContent = text;
+          setStatus(`HTTP ${res.status}`, true);
+          return;
+        }
+        if (!res.ok) {
+          resultEl.textContent = JSON.stringify(body, null, 2);
+          setStatus(body.detail || `HTTP ${res.status}`, true);
+          return;
+        }
+        targetAudio.src = wavUrlFromB64(body.target_wav_b64);
+        residualAudio.src = wavUrlFromB64(body.residual_wav_b64);
+        playersEl.hidden = false;
+        resultEl.textContent = `sample_rate=${body.sample_rate}\nmodel=${body.model_id}\n上の再生ボタンで確認できます。`;
+        setStatus("完了。target が抜き出した音、residual が残りです。");
+      } catch (e) {
+        setStatus(String(e), true);
+      }
+    });
+  </script>
+</body>
+</html>

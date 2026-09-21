@@ -1,0 +1,29 @@
+{
+  "default": "base-lite",
+  "models": {
+    "base-lite": {
+      "repo_id": "aoiandroid/sam-audio-models",
+      "config": "config-base-tv.json",
+      "weights": "sam-audio-base-tv-bf16.safetensors",
+      "lite": true
+    },
+    "base": {
+      "repo_id": "aoiandroid/sam-audio-models",
+      "config": "config-base-tv.json",
+      "weights": "sam-audio-base-tv-bf16.safetensors",
+      "lite": false
+    },
+    "large-lite": {
+      "repo_id": "aoiandroid/sam-audio-models",
+      "config": "config-large-tv.json",
+      "weights": "sam-audio-large-tv-bf16.safetensors",
+      "lite": true
+    },
+    "large": {
+      "repo_id": "aoiandroid/sam-audio-models",
+      "config": "config-large-tv.json",
+      "weights": "sam-audio-large-tv-bf16.safetensors",
+      "lite": false
+    }
+  }
+}

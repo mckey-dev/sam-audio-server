@@ -1,0 +1,16 @@
+AMD ROCm PyTorch on Windows (sam-audio-server)
+
+- Install the graphics driver version required by your ROCm release (see AMD compatibility matrix).
+- CUDA (NVIDIA) and ROCm (AMD) cannot share one venv. This repo uses `venv-cuda` for RTX and `venv` for Radeon 780M.
+
+RX 7900 XTX (gfx1100) — see install_amd.bat (`venv-amd`)
+Radeon 780M (gfx1103) — see install_780m.bat (`venv`)
+
+Official: https://rocm.docs.amd.com/projects/ai-ecosystem/en/latest/frameworks/pytorch/install.html
+
+Verify after install:
+  venv\Scripts\python.exe -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0))"
+
+Browser test:
+  run_<profile>.bat
+  Open http://127.0.0.1:8765/test/
